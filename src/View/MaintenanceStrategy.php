@@ -70,32 +70,31 @@ class MaintenanceStrategy implements ListenerAggregateInterface
      */
     public function onDispatchError(MvcEvent $event)
     {
-        // Do nothing if the result is a response object
-        $result   = $event->getResult();
-        $response = $event->getResponse();
-        if ($result instanceof Response || ($response && !$response instanceof HttpResponse)) {
-            return;
-        }
+      // Do nothing if the result is a response object
+      $result   = $event->getResult();
+      $response = $event->getResponse();
+      if ($result instanceof Response || ($response && !$response instanceof HttpResponse)) {
+          return;
+      }
 
-        if ($event->getError() !== ProviderInterface::ERROR) {
-            return;
-        }
+      if ($event->getError() !== ProviderInterface::ERROR) {
+          return;
+      }
 
-        $viewVariables = array(
-            'message' => $event->getParam('message'),
-        );
+      $viewVariables = array(
+          'message' => $event->getParam('message'),
+      );
 
-        $model = new ViewModel($viewVariables);
-        $model->setTemplate($this->getTemplate());
+      $event->getViewModel()->clearChildren();
+      $event->getViewModel()->setTerminal(true);
+      $event->getViewModel()->setTemplate($this->getTemplate());
+      $event->getViewModel()->setVariables($viewVariables);
 
-        $event->getViewModel()->clearChildren();
-        $event->getViewModel()->addChild($model);
+      $response = $response ?: new HttpResponse();
+      $response->setStatusCode(HttpResponse::STATUS_CODE_503);
+      $response->getHeaders()->addHeaderLine('Retry-After', 3600);
 
-        $response = $response ?: new HttpResponse();
-        $response->setStatusCode(HttpResponse::STATUS_CODE_503);
-        $response->getHeaders()->addHeaderLine('Retry-After', 3600);
-
-        $event->setResponse($response);
+      $event->setResponse($response);
     }
 
     /**
